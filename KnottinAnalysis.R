@@ -1,8 +1,8 @@
 ##########################################################################
 ##	Project = Knottin Protein Project									##
 ##	Contributors = Ashiqul Islam Mishu and Tanvir Sajed					##
-##	KnottinAnalysis.R -> Creates iterative sampling of ## proteins		##
-##    of which 156 is knottin, and rest 567 are non-knottin. Using		##
+##	KnottinAnalysis.R -> Creates iterative sampling of 560 proteins		##
+##    of which 156 is knottin, and rest 404 are non-knottin. Using		##
 ##	  svm() and predict() function it tries to measure 			        ##
 ##    efficiency of prediction by training 100 proteins, and test		##
 ##	  the rest randomly.												##
