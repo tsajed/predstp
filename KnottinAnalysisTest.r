@@ -10,9 +10,9 @@
 ##########################################################################
 
 library("class")
-library("e1071", lib.loc="C:/Knottine/")
+library("e1071")
 
-dataset <- read.csv("C:/Users/Mishu/Desktop/For another Laptop/BeanWrite.txt")
+dataset <- read.csv("statsForR.txt")
 
 
 push <- function(vec, item) {
@@ -24,12 +24,14 @@ eval.parent(parse(text = paste(vec, ' <- c(', vec, ', ', item, ')', sep = '')), 
 seq1 <- seq(1:1)
 numberOfBayes <- matrix(seq1, nrow=1, ncol=1)
 numberOfSVM <- matrix(seq1, nrow=1, ncol=1)
+probabSVM <- matrix(seq1, nrow=1, ncol=1)
 
 count <- 0
 for(i in 1:1) 
 {
 	numberOfBayes[i] <- 0
 	numberOfSVM[i] <- 0
+        probabSVM[i] <- 0
 }
 
 for(i in 1:1) 
@@ -40,14 +42,18 @@ for(i in 1:1)
 	classifier <- naiveBayes(train.set[,1:(ncol(dataset)-1)], train.set[,ncol(dataset)], na.action=na.omit)
         
         #tuned <- tune.svm(X28~., data = train.set, gamma = 10^(-6:-1), cost = 10^(-1:1), type="C-classification")
-        SVMclassifier <- svm(X28 ~ ., data=train.set, kernel="radial", gamma=0.01, cost=0.1, type="C-classification")
+        SVMclassifier <- svm(X28 ~ ., data=as.matrix(train.set), kernel="radial", gamma=0.01, cost=0.1, type="C-classification", probability=TRUE)
         
 	NaivePredict <- predict(classifier, test.set[,1:(ncol(dataset)-1)], type='raw')
         
-        SVMPredict <- data.frame(predict(SVMclassifier, test.set[,-ncol(dataset)]),test.set[,ncol(dataset)])
+        #SVMPredict <- data.frame(predict(SVMclassifier, as.matrix(test.set[,-ncol(dataset)], probability=TRUE),test.set[,ncol(dataset)])
+	SVMPredict <- predict(SVMclassifier, as.matrix(test.set[,-ncol(dataset)]), probability=TRUE)
+	prob <- attr(SVMPredict, "probabilities")
+	prediction <- as.character(SVMPredict)
+	rawresult <- cbind(test.set[, ncol(dataset)], prediction, prob)
         
 	#For the 100 left in the test set. test.rows 100 proteins
-	for(i in 1:nrow(NaivePredict))
+	for(i in 1:nrow(rawresult))
 	{
 		# df[i,1] the column for FALSE probability, df[i,2] = TRUE probability
 		# df[i,3] the correct boolean for a particular protein
@@ -58,10 +64,12 @@ for(i in 1:1)
 		  Result = TRUE 
 		  #print ("protein index")
 		  push(numberOfBayes,i)
-                  count <- count + 1
+                  #count <- count + 1
 		}
-                if(SVMPredict[i,1] == TRUE) {
+                if(rawresult[i,2] == "1") {
                     push(numberOfSVM,i)
+                    push(probabSVM, rawresult[i,3])
+                    count <- count + 1
                 }	
 	}
 }

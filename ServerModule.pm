@@ -1,9 +1,10 @@
-#!/usr/bin/perl –w
-use strict;
-use warnings;
-use Statistics::R;
+#!/usr/bin/perl
 
+package ServerModule;
 
+#use strict;
+#use warnings;
+#use Statistics::R;
 
 my @Sequences;
 my @Names;
@@ -14,21 +15,71 @@ my @Scores3;
 my @PositiveBayes;
 my @PositiveSVM;
 
-#AnalyzeKnottinProtein();
-#my @FILES = ParseThroughFiles();
-#WriteEverySequencesToR();
-TwoGenomeSequences("xray1.5smallproteins.fas","PurifiedKandNK2.fas","ArchaeProteome.fas");
-KnottinStructureAnalysis();
-DataAnalysisR();
-#PrintPositiveFromFile();
-#SequenceAlignmentPrediction();
+my $rVar = "library('class')
+library('e1071')\n";
 
-print(scalar(@PositiveBayes)*100/scalar(@Sequences),"\n");
-print(scalar(@PositiveSVM)*100/scalar(@Sequences),"\n");
-print(scalar(@PositiveBayes), "\n");
-print(scalar(@Sequences),"\n");
-print(scalar(@PositiveSVM), "\n");
-=cut
+$rVar = $rVar."dataset <- read.csv('statsForR.txt')\n";
+$rVar = $rVar."push <- function(vec, item) {
+vec=substitute(vec)
+eval.parent(parse(text = paste(vec, ' <- c(', vec, ', ', item, ')', sep = '')), n = 1)
+}\n";
+$rVar = $rVar."count <- 0
+#To calculate percentages of knottin sequences being correctly predicted
+seq1 <- seq(1:1)
+numberOfBayes <- matrix(seq1, nrow=1, ncol=1)
+numberOfSVM <- matrix(seq1, nrow=1, ncol=1)
+probSVM <- matrix(seq1, nrow=1, ncol=1)
+
+for(i in 1:1) 
+{
+	numberOfBayes[i] <- 0
+	numberOfSVM[i] <- 0
+	probSVM[i] <- 0
+}\n";
+
+$rVar = $rVar."for(i in 1:1) 
+{  
+	test.rows <- sample(nrow(dataset),100)
+	train.set <- dataset[1:587,]
+	test.set <- dataset[588:nrow(dataset),] 
+	classifier <- naiveBayes(train.set[,1:(ncol(dataset)-1)], train.set[,ncol(dataset)], na.action=na.omit)
+
+	SVMclassifier <- svm(X28 ~ ., data=as.matrix(train.set), kernel='radial', gamma=0.01, cost=0.1, type='C-classification', probability=TRUE)
+        
+	NaivePredict <- predict(classifier, test.set[,1:(ncol(dataset)-1)], type='raw')
+        
+        SVMPredict <- predict(SVMclassifier, as.matrix(test.set[,-ncol(dataset)]), probability=TRUE)
+        prob <- attr(SVMPredict, 'probabilities')
+        prediction <- as.character(SVMPredict)
+        rawresult <- cbind(prediction, prob)
+
+	for(i in 1:nrow(rawresult))
+	{
+		if( NaivePredict[i,1]<0.05 && NaivePredict[i,2]>=0.95 ) {
+		 	Result = TRUE 
+		  	#print ('protein index')
+		  	push(numberOfBayes,i)
+			count <- count + 1
+		 }
+		  		                    		                		if(rawresult[i,1] == '1') {
+			push(numberOfSVM, i)
+			push(probSVM, rawresult[i,2])
+		}
+	}
+	#to accomodate for empty predictions , no positives, makes
+	#an matrix to an array for Perl proper conversion. need to
+	#check for this when dealing with empty predictions
+	if(nrow(rawresult) == 0) {
+		push(numberOfSVM,0)
+        }
+}";
+=cut	
+#print(scalar(@PositiveBayes)*100/scalar(@Sequences),"\n");
+#print(scalar(@PositiveSVM)*100/scalar(@Sequences),"\n");
+#print(scalar(@PositiveBayes), "\n");
+#print(scalar(@Sequences),"\n");
+#print(scalar(@PositiveSVM), "\n");
+
 for(my $i=0; $i<scalar(@PositiveBayes);$i++) {
 
     print($Names[$PositiveBayes[$i]-1],"\n");
@@ -263,26 +314,53 @@ sub DataAnalysisPerl() {
 
 sub DataAnalysisR() {
   
-  open FILE, ">", "PredictedSequences.fas" or die $!;
+  open FILE, ">", "results.fas" or die $!;
 
   my $R = Statistics::R->new();
-  $R->run(q'source("KnottinAnalysisTest.r")');
+  $R->run($rVar);
   my $Bayes = $R->get('numberOfBayes');
   my $SVM = $R->get('numberOfSVM');
-  
+  my $prob = $R->get('probSVM');
+    
   @PositiveSVM = @$SVM;
   shift @PositiveSVM;
-  @PositiveBayes = @$Bayes;
-  shift @PositiveBayes;
   
+  @PositiveBayes = @$Bayes;
+  shift @PositiveBayes;   
+
+  @ProbabilitySVM = @$prob;
+  shift @ProbabilitySVM;
+
+  #shift removes the first element from the matrices numberOfSVM, probSVM
+  #They become arrays when numbers are pushed, but if there are no true
+  #positives, matrices dont become arrays, Statistics::R cannot convert
+  #R matrices to arrays. I pushed another 0 for empty predictions so
+  #that the matrices become arrays, therefore 1 shift is not enough
+  #to make these empty, they still have a 0 in them. Check for single element
+  #arrays with first element of 0. Real R indices are never 0, they start
+  #from 1, so 0 is a safe check number.
+  
+  if((length(@PositiveSVM) == 1) and ($PositiveSVM[0] == 0)) {
+    print "There are probably no positive STP toxins in your sample<br>";
+  }
+  else {
+    print "The sequences listed below are probably STP toxins from your sample. The position of the protein in your FASTA protein list is given as Index beside the probability of prediction<br><br>";
+  }  
 
   #The first element in both arrays is 0. That's why
   #last sequence is printed. so skip the first element.
   for(my $i=0; $i<scalar(@PositiveSVM);$i++) {
-
+   
     if($PositiveSVM[$i] != 0 && $PositiveSVM[$i] !~ /[a-zA-Z]/) { 
       print FILE $Names[$PositiveSVM[$i]-1],"\n";
       print FILE $Sequences[$PositiveSVM[$i]-1],"\n";
+      print FILE $PositiveSVM[$i], " , ", $ProbabilitySVM[$i], "\n";
+
+      print $Names[$PositiveSVM[$i]-1],"<br>";
+      print $Sequences[$PositiveSVM[$i]-1],"<br>";
+      print "Index = ",$PositiveSVM[$i]," , "; 
+      printf "Probability = %.2f", $ProbabilitySVM[$i]; 
+      print "<br><br>";
     }
     else {
       #splice @PositiveBayes, $i, 1;
@@ -314,8 +392,8 @@ sub PrintPositiveFromFile() {
 
 sub KnottinStructureAnalysis {
   
-  open FILE, "<", "ArchaeProteome.fas" or die $!;
-  open FILE1, ">", "BeanWrite.txt" or die $!;
+  open FILE, "<", "testtrain.fas" or die $!;
+  open FILE1, ">", "statsForR.txt" or die $!;
   
   my $tag = <FILE>;
   my $number = 0;
@@ -361,7 +439,10 @@ sub KnottinStructureAnalysis {
       $AminoCounts{'Y'} = 0;
       $AminoCounts{'W'} = 0;
       $AminoCounts{'S'} = 0;
-      
+      $AminoCounts{'U'} = 0;
+      $AminoCounts{'O'} = 0;
+      $AminoCounts{'J'} = 0;
+
       push(@CystineLengths,0);
       
       if(!($line =~ />/)) {
@@ -405,7 +486,7 @@ sub KnottinStructureAnalysis {
           elsif($ith eq "G") {
             $AminoCounts{'G'}++;
           }
-           elsif($ith eq "Q") {
+          elsif($ith eq "Q") {
             $AminoCounts{'Q'}++;
           }
           elsif($ith eq "F") {
@@ -429,7 +510,7 @@ sub KnottinStructureAnalysis {
           elsif($ith eq "E") {
             $AminoCounts{'E'}++;
           }
-           elsif($ith eq "D") {
+          elsif($ith eq "D") {
             $AminoCounts{'D'}++;
           }
           elsif($ith eq "T") {
@@ -450,7 +531,33 @@ sub KnottinStructureAnalysis {
           elsif($ith eq "W") {
             $AminoCounts{'W'}++;
           }
-          
+          elsif($ith eq "X") {
+	   
+          }
+          elsif($ith eq "O") {
+
+          }
+          elsif($ith eq "J") {
+
+          }
+          elsif($ith eq "U") {
+
+          }
+          elsif($ith eq "B") {
+            $AminoCounts{'N'}++;
+	  }
+          elsif($ith eq "Z") {
+	    $AminoCounts{'Q'}++;
+	  }
+          elsif(($ith eq "\r") or ($ith eq '') or ($ith eq "\n")) {
+	    $ProteinLength--;
+	  }
+	  #elsif($ith =~ /^ *$/) {
+	  #}
+
+	  else {
+            return 0;
+          }
           
           if(!($ith eq '-') && $firstIndex != -1) {
             push(@AminoAcids,$ith);
@@ -546,28 +653,28 @@ sub KnottinStructureAnalysis {
           $score3 = -$score3;
         }
         $score3 = 100/($score3  + 10) ;
-        if($number > 521) {
+        if($number > 587) {
           push @Scores1, $score1;
           push @Scores2, $score2;
           push @Scores3, $score3;
         }
         
-        if($number <= 156 ) {
-            print($BondLengths[0],',', $BondLengths[1],',', $BondLengths[2], ',' ,$number,
-                  ',',$score1,',',$score2,',',$score3);
-            print("\n");
+        if($number <= 145 ) {
+           # print($BondLengths[0],',', $BondLengths[1],',', $BondLengths[2], ',' ,$number,
+            #      ',',$score1,',',$score2,',',$score3);
+            #print("\n");
             $avOneBond = $avOneBond + $BondLengths[0];
             $avTwoBond = $avTwoBond + $BondLengths[1];
             $avThreeBond = $avThreeBond + $BondLengths[2];
         }
-        elsif($number == 157) {
-            print $avOneBond/156, "\n";
-            print $avTwoBond/156, "\n";
-            print $avThreeBond/156, "\n";
+        elsif($number == 146) {
+            #print $avOneBond/156, "\n";
+            #print $avTwoBond/156, "\n";
+            #print $avThreeBond/156, "\n";
         }
         
         my $type = "T";
-        if($number > 156) {
+        if($number > 145) {
           $type = "F";
         }
         my $x = $ProteinLength/100;
@@ -598,6 +705,7 @@ sub KnottinStructureAnalysis {
   #print($avRatioCystines/150, "\nratio\n");
   close FILE;
   close FILE1;
+  return 1;
 }
 
 sub BondLengthClassifier {
@@ -1223,4 +1331,4 @@ sub Average {
   return $total;
 }
 
-
+1;
