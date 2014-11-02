@@ -37,8 +37,8 @@ for(i in 1:1)
 for(i in 1:1) 
 {  
 	test.rows <- sample(nrow(dataset),100)
-	train.set <- dataset[1:560,]
-	test.set <- dataset[561:nrow(dataset),]
+	train.set <- dataset[1:587,]
+	test.set <- dataset[588:nrow(dataset),]
 	classifier <- naiveBayes(train.set[,1:(ncol(dataset)-1)], train.set[,ncol(dataset)], na.action=na.omit)
         
         #tuned <- tune.svm(X28~., data = train.set, gamma = 10^(-6:-1), cost = 10^(-1:1), type="C-classification")
@@ -70,6 +70,7 @@ for(i in 1:1)
                     push(numberOfSVM,i)
                     push(probabSVM, rawresult[i,3])
                     count <- count + 1
+                   # print(i)
                 }	
 	}
 }
