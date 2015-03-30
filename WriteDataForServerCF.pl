@@ -17,7 +17,7 @@ my @PositiveSVM;
 #AnalyzeKnottinProtein();
 #my @FILES = ParseThroughFiles();
 #WriteEverySequencesToR();
-TwoGenomeSequences("xray1.5smallproteins.fas","PurifiedKandNK2.fas","ArchaeProteome.fas");
+TwoGenomeSequences("nmr.fas","STPs.fas","ArchaeProteome.fas");
 KnottinStructureAnalysis();
 DataAnalysisR();
 #PrintPositiveFromFile();
@@ -264,25 +264,54 @@ sub DataAnalysisPerl() {
 sub DataAnalysisR() {
   
   open FILE, ">", "PredictedSequences.fas" or die $!;
+  my @ProbabilitySVM;
+  my @PositiveSVM;
 
   my $R = Statistics::R->new();
-  $R->run(q'source("KnottinAnalysisTest.r")');
-  my $Bayes = $R->get('numberOfBayes');
+  $R->run(q'source("KnottinAnalysisTest.R")');
+  #my $Bayes = $R->get('numberOfBayes');
   my $SVM = $R->get('numberOfSVM');
-  
+  my $prob = $R->get('probSVM');
+    
   @PositiveSVM = @$SVM;
   shift @PositiveSVM;
-  @PositiveBayes = @$Bayes;
-  shift @PositiveBayes;
   
+  #@PositiveBayes = @$Bayes;
+  #shift @PositiveBayes;   
+
+  @ProbabilitySVM = @$prob;
+  shift @ProbabilitySVM;
+
+  #shift removes the first element from the matrices numberOfSVM, probSVM
+  #They become arrays when numbers are pushed, but if there are no true
+  #positives, matrices dont become arrays, Statistics::R cannot convert
+  #R matrices to arrays. I pushed another 0 for empty predictions so
+  #that the matrices become arrays, therefore 1 shift is not enough
+  #to make these empty, they still have a 0 in them. Check for single element
+  #arrays with first element of 0. Real R indices are never 0, they start
+  #from 1, so 0 is a safe check number.
+  
+  if((length(@PositiveSVM) == 1) and ($PositiveSVM[0] == 0)) {
+    print "There are probably no positive STP toxins in your sample<br>";
+  }
+  else {
+    print "The sequences listed below are probably STP toxins from your sample. The position of the protein in your FASTA protein list is given as Index beside the probability of prediction<br><br>";
+  }  
 
   #The first element in both arrays is 0. That's why
   #last sequence is printed. so skip the first element.
   for(my $i=0; $i<scalar(@PositiveSVM);$i++) {
-
+   
     if($PositiveSVM[$i] != 0 && $PositiveSVM[$i] !~ /[a-zA-Z]/) { 
       print FILE $Names[$PositiveSVM[$i]-1],"\n";
       print FILE $Sequences[$PositiveSVM[$i]-1],"\n";
+      print FILE $PositiveSVM[$i], " , ", $ProbabilitySVM[$i], "\n";
+
+      print $Names[$PositiveSVM[$i]-1],"<br>";
+      print $Sequences[$PositiveSVM[$i]-1],"<br>";
+      print "Index = ",$PositiveSVM[$i]," , "; 
+      printf "Probability = %.2f", $ProbabilitySVM[$i]; 
+      print "<br><br>";
     }
     else {
       #splice @PositiveBayes, $i, 1;
@@ -315,7 +344,7 @@ sub PrintPositiveFromFile() {
 sub KnottinStructureAnalysis {
   
   open FILE, "<", "ArchaeProteome.fas" or die $!;
-  open FILE1, ">", "BeanWrite.txt" or die $!;
+  open FILE1, ">", "statsForR.txt" or die $!;
   
   my $tag = <FILE>;
   my $number = 0;
@@ -325,7 +354,7 @@ sub KnottinStructureAnalysis {
   my $avRatioCystines = 0;
   my $averageDistanceCystines = 0;
 
-  print FILE1 "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28\n";
+  print FILE1 "0,1,2,3,4,5,6,7,8,9,10,11\n";
   
   while(my $line = <FILE>) {
     
@@ -340,6 +369,7 @@ sub KnottinStructureAnalysis {
       my @CystineLengths ;
       my @AminoAcids;
       my @BondLengths;
+      my @SortedLengths;
       my %AminoCounts;
       
       $AminoCounts{'V'} = 0;
@@ -486,7 +516,7 @@ sub KnottinStructureAnalysis {
 
         else {
           shift(@CystineLengths);
-          my @SortedLengths = sort{$a <=> $b}(@CystineLengths);
+          @SortedLengths = sort{$a <=> $b}(@CystineLengths);
           $LeastLengthRatio = $SortedLengths[0]/$ProteinLength;
           #print($CystineLengths[4]) ;
           @BondLengths = BondLengthClassifier(\@SortedLengths, \@CystineLengths);
@@ -552,7 +582,7 @@ sub KnottinStructureAnalysis {
           push @Scores3, $score3;
         }
         
-        if($number <= 156 ) {
+        if($number <= 144 ) {
             print($BondLengths[0],',', $BondLengths[1],',', $BondLengths[2], ',' ,$number,
                   ',',$score1,',',$score2,',',$score3);
             print("\n");
@@ -560,34 +590,43 @@ sub KnottinStructureAnalysis {
             $avTwoBond = $avTwoBond + $BondLengths[1];
             $avThreeBond = $avThreeBond + $BondLengths[2];
         }
-        elsif($number == 157) {
+        elsif($number == 145) {
             print $avOneBond/156, "\n";
             print $avTwoBond/156, "\n";
             print $avThreeBond/156, "\n";
         }
         
         my $type = "T";
-        if($number > 156) {
+        if($number > 144) {
           $type = "F";
         }
         my $x = $ProteinLength/100;
+        # DoubleCC boolean identifier if there are two CC adjacents in the protein
+        my $DoubleCC = 0;
+        if ($SortedLengths[0] == 1 && $SortedLengths[1] == 1) {
+            $DoubleCC = 1;
+        }
+        # Boolean if CC exists in C4 - C5 or C5 - C6
+        my $CC4or5 = 0;
+        if ($BondLengths[3] == 1) {
+          $CC4or5 = 1;
+        }
         #Those who are non-knottins the first 6 cystine indices will be 0
         #This will have a character to all the non-knottins and the non-knottins
         #can be identified easily. Think about knottin indices of pivot, or other cystines.
 
         #print FILE1  $ThreedistanceClassifier,",", $FourdistanceClassifier, ",", $FivedistanceClassifier, ",",$RatioClassifier,",",$numberClassifier,",", $type, "\n";
         #print FILE1  $CystineLengths[0],",",$CystineLengths[4],",", $CystineLengths[4],",",$numberOfCystines,",", $type, "\n";
-        print FILE1  $Classifiers[0],",",$Classifiers[1],",",$Classifiers[2],",",
-        $LeastLengthRatio, ",",
-        $ProteinLength,",",
+        print FILE1  #$Classifiers[0],",",$Classifiers[1],",",$Classifiers[2],",",
+                     $LeastLengthRatio, ",", $ProteinLength,",", $DoubleCC, ",",
                      #$BondLengths[0] ,",", $BondLengths[1],",", $BondLengths[2], ",",
-                     $score1 ,",", $score2,",", $score3, ",",
+                     $score1 ,",", $score2,",", $score3, ",", $CC4or5, ",",
                      $numberOfCystines,",",#$type,"\n";
-                     $AminoCounts{'V'} ,",", $AminoCounts{'A'},",", $AminoCounts{'M'}, ",",$AminoCounts{'P'}, ",",
-                     $AminoCounts{'Q'} ,",", $AminoCounts{'G'},",", $AminoCounts{'F'}, ",",$AminoCounts{'R'}, ",",
-                     $AminoCounts{'K'} ,",", $AminoCounts{'Y'},",", $AminoCounts{'S'}, ",",$AminoCounts{'N'}, ",",
-                     $AminoCounts{'H'} ,",", $AminoCounts{'D'},",", $AminoCounts{'E'}, ",",$AminoCounts{'W'}, ",",
-                     $AminoCounts{'L'} ,",", $AminoCounts{'K'},",", $AminoCounts{'I'}, ",",
+                     #$AminoCounts{'V'} ,",", $AminoCounts{'A'},",", $AminoCounts{'M'}, ",",$AminoCounts{'P'}, ",",
+                     #$AminoCounts{'Q'} ,",", $AminoCounts{'G'},",", $AminoCounts{'F'}, ",",$AminoCounts{'R'}, ",",
+                     #$AminoCounts{'K'} ,",", $AminoCounts{'Y'},",", $AminoCounts{'S'}, ",",$AminoCounts{'N'}, ",",
+                     #$AminoCounts{'H'} ,",", $AminoCounts{'D'},",", $AminoCounts{'E'}, ",",$AminoCounts{'W'}, ",",
+                     $AminoCounts{'S'} ,",", $AminoCounts{'K'},",", $AminoCounts{'R'}, ",",
                      $type, "\n";
       }    
     }
@@ -625,7 +664,8 @@ sub BondLengthClassifier {
   # Case - By observation the least loop length is either 1, 2 or 3 for every knottin
   # proteins. Thereby cystine knots cannot be formed if the least loop length is not in
   # that range.
-  
+  # BondLengths[3] boolean identifier if C4 - C5 is adjacent or C5 - C6 is adjacent
+
   if($SortedLengths[0] <= 3 && $LeastBondIndex > 1 ) {
       
       # Case - C1 - C4 , C2 - C5, C3 - C6 bonds with the pivot being first C in least loop
@@ -645,6 +685,13 @@ sub BondLengthClassifier {
         push(@BondLengths,$BondLength1);
         push(@BondLengths,$BondLength2);
         push(@BondLengths,$BondLength3);
+        # If there are CC in C4 - C5 or C5 - C6
+        if (($CystineLengths[$LeastBondIndex] == 1) || ($CystineLengths[$LeastBondIndex + 1] == 1)) {
+            push(@BondLengths, 1); 
+        }
+        else {
+            push(@BondLengths, 0);
+        }
       }
       
       # Case - C1 - C4 , C2 - C5, C3 - C6 bonds with the pivot being last C in least loop
@@ -665,6 +712,13 @@ sub BondLengthClassifier {
         push(@BondLengths,$BondLength1);
         push(@BondLengths,$BondLength2);
         push(@BondLengths,$BondLength3);
+        # If there are CC in C4 - C5 or C5 - C6
+        if (($CystineLengths[$LeastBondIndex + 1] == 1) || ($CystineLengths[$LeastBondIndex + 2] == 1)) {
+            push(@BondLengths, 1); 
+        }
+        else {
+            push(@BondLengths, 0);
+        }
       }
       
       # Case - Since about some knottins had only CC pivot at the end, need to find
@@ -685,6 +739,13 @@ sub BondLengthClassifier {
         push(@BondLengths,$BondLength1);
         push(@BondLengths,$BondLength2);
         push(@BondLengths,$BondLength3);
+        # If there are CC in C4 - C5 or C5 - C6
+        if ($CystineLengths[$LeastBondIndex] == 1) {
+            push(@BondLengths, 1); 
+        }
+        else {
+            push(@BondLengths, 0);
+        }
       }
     
       # Cases to be solved - CC domains on end with 6 or more cysteines. Sometimes
@@ -694,10 +755,12 @@ sub BondLengthClassifier {
         push(@BondLengths,0);
         push(@BondLengths,0);
         push(@BondLengths,0);
+        push(@BondLengths,0);
       }
     }
      
   else {
+      push(@BondLengths,0);
       push(@BondLengths,0);
       push(@BondLengths,0);
       push(@BondLengths,0);
