@@ -13,7 +13,7 @@ library("class")
 library("e1071")
 library("ROCR")
 
-dataset <- read.csv("statsForR.txt")
+dataset <- read.csv("BeanWrite.txt")
 
 push <- function(vec, item) {
 vec=substitute(vec)
@@ -46,7 +46,7 @@ for(i in 1:1)
   #Naiveclassifier <- naiveBayes(train.set[,1:ncol(dataset)-1], train.set[,ncol(dataset)], na.action=na.omit)
         #tuned <- tune.svm(X11~., data = train.set, gamma = 10^(-6:-1), cost = 10^(-1:1), type="C-classification")
 
-        SVMclassifier <- svm(X11 ~ ., data=train.set, kernel="radial", gamma=0.1, cost=0.1, type="C-classification",
+        SVMclassifier <- svm(X11 ~ ., data=as.matrix(train.set), kernel="radial", gamma=0.1, cost=0.1, type="C-classification",
                              probability=TRUE)
   #df <- data.frame(predict(Naiveclassifier, test.set[,1:ncol(dataset)-1], type='raw'), test.set[,ncol(dataset)])
         
@@ -61,7 +61,7 @@ for(i in 1:1)
 
         for(i in 1:nrow(rawresult))
         {
-          if(rawresult[i,1] == 'TRUE') {
+          if(rawresult[i,1] == 1) {
             push(numberOfSVM, i)
             push(probSVM, rawresult[i,2])
             count <- count + 1

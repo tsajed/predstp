@@ -269,15 +269,11 @@ sub DataAnalysisR() {
 
   my $R = Statistics::R->new();
   $R->run(q'source("KnottinAnalysisTest.R")');
-  #my $Bayes = $R->get('numberOfBayes');
   my $SVM = $R->get('numberOfSVM');
   my $prob = $R->get('probSVM');
     
   @PositiveSVM = @$SVM;
-  shift @PositiveSVM;
-  
-  #@PositiveBayes = @$Bayes;
-  #shift @PositiveBayes;   
+  shift @PositiveSVM;  
 
   @ProbabilitySVM = @$prob;
   shift @ProbabilitySVM;
@@ -344,7 +340,7 @@ sub PrintPositiveFromFile() {
 sub KnottinStructureAnalysis {
   
   open FILE, "<", "ArchaeProteome.fas" or die $!;
-  open FILE1, ">", "statsForR.txt" or die $!;
+  open FILE1, ">", "BeanWrite.txt" or die $!;
   
   my $tag = <FILE>;
   my $number = 0;
@@ -391,6 +387,9 @@ sub KnottinStructureAnalysis {
       $AminoCounts{'Y'} = 0;
       $AminoCounts{'W'} = 0;
       $AminoCounts{'S'} = 0;
+      $AminoCounts{'U'} = 0;
+      $AminoCounts{'O'} = 0;
+      $AminoCounts{'J'} = 0;
       
       push(@CystineLengths,0);
       
@@ -480,8 +479,34 @@ sub KnottinStructureAnalysis {
           elsif($ith eq "W") {
             $AminoCounts{'W'}++;
           }
-          
-          
+          elsif($ith eq "X") {
+     
+          }
+          elsif($ith eq "O") {
+
+          }
+          elsif($ith eq "J") {
+
+          }
+          elsif($ith eq "U") {
+
+          }
+
+          elsif($ith eq "B") {
+            $AminoCounts{'N'}++;
+          }
+          elsif($ith eq "Z") {
+            $AminoCounts{'Q'}++;
+          }
+          # Very important that this be reverted once paper is accepted
+          # tests on paper not done with this
+          elsif(($ith eq "\r") or ($ith eq '') or ($ith eq "\n")) {
+          #  $ProteinLength--;
+          }          
+          else {
+            return 0;
+          }
+
           if(!($ith eq '-') && $firstIndex != -1) {
             push(@AminoAcids,$ith);
           }
@@ -1285,5 +1310,3 @@ sub Average {
   $total = $total/@array;
   return $total;
 }
-
-

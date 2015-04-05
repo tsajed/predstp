@@ -26,13 +26,11 @@ eval.parent(parse(text = paste(vec, ' <- c(', vec, ', ', item, ')', sep = '')), 
 $rVar = $rVar."count <- 0
 #To calculate percentages of knottin sequences being correctly predicted
 seq1 <- seq(1:1)
-numberOfBayes <- matrix(seq1, nrow=1, ncol=1)
 numberOfSVM <- matrix(seq1, nrow=1, ncol=1)
 probSVM <- matrix(seq1, nrow=1, ncol=1)
 
 for(i in 1:1) 
 {
-	numberOfBayes[i] <- 0
 	numberOfSVM[i] <- 0
 	probSVM[i] <- 0
 }\n";
@@ -40,13 +38,13 @@ for(i in 1:1)
 $rVar = $rVar."for(i in 1:1) 
 {  
 	test.rows <- sample(nrow(dataset),100)
-	train.set <- dataset[1:587,]
-	test.set <- dataset[588:nrow(dataset),] 
-	classifier <- naiveBayes(train.set[,1:(ncol(dataset)-1)], train.set[,ncol(dataset)], na.action=na.omit)
+	train.set <- dataset[1:537,]
+	test.set <- dataset[538:nrow(dataset),] 
+	#classifier <- naiveBayes(train.set[,1:(ncol(dataset)-1)], train.set[,ncol(dataset)], na.action=na.omit)
 
-	SVMclassifier <- svm(X28 ~ ., data=as.matrix(train.set), kernel='radial', gamma=0.01, cost=0.1, type='C-classification', probability=TRUE)
+	SVMclassifier <- svm(X11 ~ ., data=as.matrix(train.set), kernel='radial', gamma=0.1, cost=0.1, type='C-classification', probability=TRUE)
         
-	NaivePredict <- predict(classifier, test.set[,1:(ncol(dataset)-1)], type='raw')
+	#NaivePredict <- predict(classifier, test.set[,1:(ncol(dataset)-1)], type='raw')
         
         SVMPredict <- predict(SVMclassifier, as.matrix(test.set[,-ncol(dataset)]), probability=TRUE)
         prob <- attr(SVMPredict, 'probabilities')
@@ -55,12 +53,6 @@ $rVar = $rVar."for(i in 1:1)
 
 	for(i in 1:nrow(rawresult))
 	{
-		if( NaivePredict[i,1]<0.05 && NaivePredict[i,2]>=0.95 ) {
-		 	Result = TRUE 
-		  	#print ('protein index')
-		  	push(numberOfBayes,i)
-			count <- count + 1
-		 }
 		  		                    		                		if(rawresult[i,1] == '1') {
 			push(numberOfSVM, i)
 			push(probSVM, rawresult[i,2])
@@ -73,20 +65,8 @@ $rVar = $rVar."for(i in 1:1)
 		push(numberOfSVM,0)
         }
 }";
-=cut	
-#print(scalar(@PositiveBayes)*100/scalar(@Sequences),"\n");
-#print(scalar(@PositiveSVM)*100/scalar(@Sequences),"\n");
-#print(scalar(@PositiveBayes), "\n");
-#print(scalar(@Sequences),"\n");
-#print(scalar(@PositiveSVM), "\n");
 
-for(my $i=0; $i<scalar(@PositiveBayes);$i++) {
 
-    print($Names[$PositiveBayes[$i]-1],"\n");
-    print($Sequences[$PositiveBayes[$i]-1],"\n");
-}
-#print(scalar(@PositiveBayes)/Total);
-=cut
 sub ParseThroughFiles {
   opendir (DIR,  "C:\\Users\\Tanvir\\Documents\\Knottin Project\\pdb\\non-knottins\\PDB files less than 100aa");
   my @FILES = readdir(DIR);
@@ -318,16 +298,12 @@ sub DataAnalysisR() {
 
   my $R = Statistics::R->new();
   $R->run($rVar);
-  my $Bayes = $R->get('numberOfBayes');
   my $SVM = $R->get('numberOfSVM');
   my $prob = $R->get('probSVM');
     
   @PositiveSVM = @$SVM;
   shift @PositiveSVM;
-  
-  @PositiveBayes = @$Bayes;
-  shift @PositiveBayes;   
-
+   
   @ProbabilitySVM = @$prob;
   shift @ProbabilitySVM;
 
@@ -403,7 +379,7 @@ sub KnottinStructureAnalysis {
   my $avRatioCystines = 0;
   my $averageDistanceCystines = 0;
 
-  print FILE1 "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28\n";
+  print FILE1 "0,1,2,3,4,5,6,7,8,9,10,11\n";
   
   while(my $line = <FILE>) {
     
@@ -418,6 +394,7 @@ sub KnottinStructureAnalysis {
       my @CystineLengths ;
       my @AminoAcids;
       my @BondLengths;
+      my @SortedLengths;
       my %AminoCounts;
       
       $AminoCounts{'V'} = 0;
@@ -543,19 +520,18 @@ sub KnottinStructureAnalysis {
           elsif($ith eq "U") {
 
           }
+
           elsif($ith eq "B") {
             $AminoCounts{'N'}++;
-	  }
+	        }
           elsif($ith eq "Z") {
-	    $AminoCounts{'Q'}++;
-	  }
+	          $AminoCounts{'Q'}++;
+	        }
+          # Very important that this be reverted once paper is accepted
           elsif(($ith eq "\r") or ($ith eq '') or ($ith eq "\n")) {
-	    $ProteinLength--;
-	  }
-	  #elsif($ith =~ /^ *$/) {
-	  #}
-
-	  else {
+	        #  $ProteinLength--;
+	        }
+	        else {
             return 0;
           }
           
@@ -593,7 +569,7 @@ sub KnottinStructureAnalysis {
 
         else {
           shift(@CystineLengths);
-          my @SortedLengths = sort{$a <=> $b}(@CystineLengths);
+          @SortedLengths = sort{$a <=> $b}(@CystineLengths);
           $LeastLengthRatio = $SortedLengths[0]/$ProteinLength;
           #print($CystineLengths[4]) ;
           @BondLengths = BondLengthClassifier(\@SortedLengths, \@CystineLengths);
@@ -653,13 +629,13 @@ sub KnottinStructureAnalysis {
           $score3 = -$score3;
         }
         $score3 = 100/($score3  + 10) ;
-        if($number > 587) {
+        if($number > 521) {
           push @Scores1, $score1;
           push @Scores2, $score2;
           push @Scores3, $score3;
         }
         
-        if($number <= 145 ) {
+        if($number <= 144 ) {
            # print($BondLengths[0],',', $BondLengths[1],',', $BondLengths[2], ',' ,$number,
             #      ',',$score1,',',$score2,',',$score3);
             #print("\n");
@@ -667,34 +643,43 @@ sub KnottinStructureAnalysis {
             $avTwoBond = $avTwoBond + $BondLengths[1];
             $avThreeBond = $avThreeBond + $BondLengths[2];
         }
-        elsif($number == 146) {
+        elsif($number == 145) {
             #print $avOneBond/156, "\n";
             #print $avTwoBond/156, "\n";
             #print $avThreeBond/156, "\n";
         }
         
         my $type = "T";
-        if($number > 145) {
+        if($number > 144) {
           $type = "F";
         }
         my $x = $ProteinLength/100;
+        # DoubleCC boolean identifier if there are two CC adjacents in the protein
+        my $DoubleCC = 0;
+        if ($SortedLengths[0] == 1 && $SortedLengths[1] == 1) {
+            $DoubleCC = 1;
+        }
+        # Boolean if CC exists in C4 - C5 or C5 - C6
+        my $CC4or5 = 0;
+        if ($BondLengths[3] == 1) {
+          $CC4or5 = 1;
+        }
         #Those who are non-knottins the first 6 cystine indices will be 0
         #This will have a character to all the non-knottins and the non-knottins
         #can be identified easily. Think about knottin indices of pivot, or other cystines.
 
         #print FILE1  $ThreedistanceClassifier,",", $FourdistanceClassifier, ",", $FivedistanceClassifier, ",",$RatioClassifier,",",$numberClassifier,",", $type, "\n";
         #print FILE1  $CystineLengths[0],",",$CystineLengths[4],",", $CystineLengths[4],",",$numberOfCystines,",", $type, "\n";
-        print FILE1  $Classifiers[0],",",$Classifiers[1],",",$Classifiers[2],",",
-        $LeastLengthRatio, ",",
-        $ProteinLength,",",
+        print FILE1  #$Classifiers[0],",",$Classifiers[1],",",$Classifiers[2],",",
+                     $LeastLengthRatio, ",", $ProteinLength,",", $DoubleCC, ",",
                      #$BondLengths[0] ,",", $BondLengths[1],",", $BondLengths[2], ",",
-                     $score1 ,",", $score2,",", $score3, ",",
+                     $score1 ,",", $score2,",", $score3, ",", $CC4or5, ",",
                      $numberOfCystines,",",#$type,"\n";
-                     $AminoCounts{'V'} ,",", $AminoCounts{'A'},",", $AminoCounts{'M'}, ",",$AminoCounts{'P'}, ",",
-                     $AminoCounts{'Q'} ,",", $AminoCounts{'G'},",", $AminoCounts{'F'}, ",",$AminoCounts{'R'}, ",",
-                     $AminoCounts{'K'} ,",", $AminoCounts{'Y'},",", $AminoCounts{'S'}, ",",$AminoCounts{'N'}, ",",
-                     $AminoCounts{'H'} ,",", $AminoCounts{'D'},",", $AminoCounts{'E'}, ",",$AminoCounts{'W'}, ",",
-                     $AminoCounts{'L'} ,",", $AminoCounts{'K'},",", $AminoCounts{'I'}, ",",
+                     #$AminoCounts{'V'} ,",", $AminoCounts{'A'},",", $AminoCounts{'M'}, ",",$AminoCounts{'P'}, ",",
+                     #$AminoCounts{'Q'} ,",", $AminoCounts{'G'},",", $AminoCounts{'F'}, ",",$AminoCounts{'R'}, ",",
+                     #$AminoCounts{'K'} ,",", $AminoCounts{'Y'},",", $AminoCounts{'S'}, ",",$AminoCounts{'N'}, ",",
+                     #$AminoCounts{'H'} ,",", $AminoCounts{'D'},",", $AminoCounts{'E'}, ",",$AminoCounts{'W'}, ",",
+                     $AminoCounts{'S'} ,",", $AminoCounts{'K'},",", $AminoCounts{'R'}, ",",
                      $type, "\n";
       }    
     }
@@ -733,6 +718,7 @@ sub BondLengthClassifier {
   # Case - By observation the least loop length is either 1, 2 or 3 for every knottin
   # proteins. Thereby cystine knots cannot be formed if the least loop length is not in
   # that range.
+  # BondLengths[3] boolean identifier if C4 - C5 is adjacent or C5 - C6 is adjacent
   
   if($SortedLengths[0] <= 3 && $LeastBondIndex > 1 ) {
       
@@ -753,6 +739,13 @@ sub BondLengthClassifier {
         push(@BondLengths,$BondLength1);
         push(@BondLengths,$BondLength2);
         push(@BondLengths,$BondLength3);
+        # If there are CC in C4 - C5 or C5 - C6
+        if (($CystineLengths[$LeastBondIndex] == 1) || ($CystineLengths[$LeastBondIndex + 1] == 1)) {
+            push(@BondLengths, 1); 
+        }
+        else {
+            push(@BondLengths, 0);
+        }
       }
       
       # Case - C1 - C4 , C2 - C5, C3 - C6 bonds with the pivot being last C in least loop
@@ -773,6 +766,13 @@ sub BondLengthClassifier {
         push(@BondLengths,$BondLength1);
         push(@BondLengths,$BondLength2);
         push(@BondLengths,$BondLength3);
+        # If there are CC in C4 - C5 or C5 - C6
+        if (($CystineLengths[$LeastBondIndex + 1] == 1) || ($CystineLengths[$LeastBondIndex + 2] == 1)) {
+            push(@BondLengths, 1); 
+        }
+        else {
+            push(@BondLengths, 0);
+        }
       }
       
       # Case - Since about some knottins had only CC pivot at the end, need to find
@@ -793,6 +793,13 @@ sub BondLengthClassifier {
         push(@BondLengths,$BondLength1);
         push(@BondLengths,$BondLength2);
         push(@BondLengths,$BondLength3);
+        # If there are CC in C4 - C5 or C5 - C6
+        if ($CystineLengths[$LeastBondIndex] == 1) {
+            push(@BondLengths, 1); 
+        }
+        else {
+            push(@BondLengths, 0);
+        }
       }
     
       # Cases to be solved - CC domains on end with 6 or more cysteines. Sometimes
@@ -802,10 +809,12 @@ sub BondLengthClassifier {
         push(@BondLengths,0);
         push(@BondLengths,0);
         push(@BondLengths,0);
+        push(@BondLengths,0);
       }
     }
      
   else {
+      push(@BondLengths,0);
       push(@BondLengths,0);
       push(@BondLengths,0);
       push(@BondLengths,0);

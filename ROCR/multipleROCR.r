@@ -108,8 +108,8 @@ plotROCR <- function(dataset, featureSet, firstplot, color) {
 }
 
 #postscript("CummulativeCaptures.eps", width = 8, height = 8, 
-#           horizontal = FALSE, onefile = FALSE, paper = "special", 
-#          colormodel = "cmyk", family = "ComputerModern", encoding = "TeXtext.enc")
+#           horizontal = FALSE, onefile = TRUE, paper = "special", 
+#          colormodel = "cmyk", family = "ComputerModern")
 
 plotROCR(dataset1, X23 ~ ., TRUE, "black")
 plotROCR(dataset2, X23 ~ ., FALSE, "red")
