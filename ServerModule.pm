@@ -16,7 +16,7 @@ my @PositiveBayes;
 my @PositiveSVM;
 
 my $rVar = "library('class')
-library('e1071')\n";
+library('e1071') #library('e1071', lib.loc='./')\n";
 
 $rVar = $rVar."dataset <- read.csv('statsForR.txt')\n";
 $rVar = $rVar."push <- function(vec, item) {
