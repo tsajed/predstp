@@ -28,6 +28,7 @@ labels <- c()
 Eff <- matrix(seq2, nrow=2, ncol=2)
 numberOfSVM <- matrix(seq1, nrow=1, ncol=1)
 probSVM <- matrix(seq1, nrow=1, ncol=1)
+Sample <- matrix(seq1, nrow=1, ncol=1)
 
 for(i in 1:1) 
 {
@@ -66,6 +67,7 @@ for(i in 1:1)
             push(probSVM, rawresult[i,2])
             count <- count + 1
           }
+          push(Sample, i)
         }
         #to accomodate for empty predictions , no positives, makes
         #an matrix to an array for Perl proper conversion. need to

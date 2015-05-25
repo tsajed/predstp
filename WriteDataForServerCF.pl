@@ -266,17 +266,24 @@ sub DataAnalysisR() {
   open FILE, ">", "PredictedSequences.fas" or die $!;
   my @ProbabilitySVM;
   my @PositiveSVM;
+  my @Sample;
 
   my $R = Statistics::R->new();
   $R->run(q'source("KnottinAnalysisTest.R")');
   my $SVM = $R->get('numberOfSVM');
   my $prob = $R->get('probSVM');
+  my $sample = $R->get('Sample');
     
   @PositiveSVM = @$SVM;
   shift @PositiveSVM;  
 
   @ProbabilitySVM = @$prob;
   shift @ProbabilitySVM;
+
+  @Sample = @$sample;
+  shift @Sample;
+
+  my $percentSTP = scalar(@PositiveSVM) * 100/ scalar(@Sample);
 
   #shift removes the first element from the matrices numberOfSVM, probSVM
   #They become arrays when numbers are pushed, but if there are no true
@@ -291,7 +298,10 @@ sub DataAnalysisR() {
     print "There are probably no positive STP toxins in your sample<br>";
   }
   else {
-    print "The sequences listed below are probably STP toxins from your sample. The position of the protein in your FASTA protein list is given as Index beside the probability of prediction<br><br>";
+    print "The sequences listed below are probably STP toxins from your sample. The position of the protein in your FASTA protein list is given as Index beside the probability of prediction<br>";
+    print "There are a total of ",scalar(@PositiveSVM), " predicted STPs, which is ";
+    printf "%.2f%", $percentSTP;
+    print " of your sample<br><br>";
   }  
 
   #The first element in both arrays is 0. That's why
